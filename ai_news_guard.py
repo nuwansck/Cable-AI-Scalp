@@ -1,4 +1,4 @@
-"""ai_news_guard.py — Cable AI Scalp v1.0 optional OpenAI news-risk guard.
+"""ai_news_guard.py — Cable AI Scalp v1.1 optional OpenAI news-risk guard.
 
 This module is intentionally NOT a signal generator.
 It only classifies market/news risk around an already-valid technical setup.

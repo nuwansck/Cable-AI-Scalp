@@ -1,6 +1,6 @@
-# Cable AI Scalp v1.0 — Technical Specification & Operations Wiki
+# Cable AI Scalp v1.1 — Technical Specification & Operations Wiki
 
-**Bot name:** Cable AI Scalp v1.0
+**Bot name:** Cable AI Scalp v1.1
 **Instrument:** GBP/USD (Cable) only
 **Exchange:** OANDA (practice & live)
 **Deployment:** Railway (PaaS)
@@ -12,7 +12,7 @@
 
 ## 1. Purpose & Scope
 
-Cable AI Scalp v1.0 is a fully automated 5-minute scalping bot dedicated to GBP/USD.
+Cable AI Scalp v1.1 is a fully automated 5-minute scalping bot dedicated to GBP/USD.
 It uses a three-layer signal engine (EMA crossover + ORB + CPR bias) scored 0–6/6,
 with minimum score thresholds per session. All configuration lives in `settings.json`.
 

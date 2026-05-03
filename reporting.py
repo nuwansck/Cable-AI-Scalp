@@ -1,4 +1,4 @@
-"""reporting.py — Cable AI Scalp v1.0 Telegram Performance Reports
+"""reporting.py — Cable AI Scalp v1.1 Telegram Performance Reports
 
 Three scheduled reports, all reading directly from /data/trade_history.json
 on the Railway persistent volume. No archive file needed — the 90-day rolling
@@ -25,6 +25,7 @@ import pytz
 from state_utils import TRADE_HISTORY_FILE
 from telegram_alert import TelegramAlert
 from telegram_templates import msg_daily_report, msg_weekly_report, msg_monthly_report
+from ai_guard_tracker import summarize_ai_tracking, get_ai_guard_csv_path
 
 log = logging.getLogger(__name__)
 SGT = pytz.timezone("Asia/Singapore")
@@ -381,6 +382,8 @@ def send_daily_report() -> None:
         today_stats = _stats(pd_trades)
         today_label = pd_start.strftime("%a %d %b %Y")
 
+        ai_stats = summarize_ai_tracking(pd_start, pd_end)
+
         msg = msg_daily_report(
             day_label       = today_label,
             day_stats       = today_stats,
@@ -392,6 +395,7 @@ def send_daily_report() -> None:
             blocked_news    = blocked_news,
             blocked_signal  = blocked_signal,
             session_stats   = session_stats,
+            ai_stats        = ai_stats,
         )
         ok = TelegramAlert().send(msg)
         if ok:
@@ -427,6 +431,7 @@ def send_weekly_report() -> None:
         pair_stats = {k: _stats(v) for k, v in pw_pairs.items()}
 
         h1_stats = _h1_breakdown(pw_trades)
+        ai_stats = summarize_ai_tracking(pw_start, pw_end)
 
         msg = msg_weekly_report(
             week_label = pw_label,
@@ -435,6 +440,7 @@ def send_weekly_report() -> None:
             setups     = setups,
             pairs      = pair_stats,
             h1_stats   = h1_stats,
+            ai_stats   = ai_stats,
             report_time= now.strftime("%H:%M SGT"),
         )
         ok = TelegramAlert().send(msg)
@@ -529,6 +535,7 @@ def send_monthly_report() -> None:
         mom_delta  = round(pm_stats["net_pnl"] - ppm_pnl, 2) if ppm_pnl is not None else None
 
         h1_stats = _h1_breakdown(pm_trades)
+        ai_stats = summarize_ai_tracking(pm_start, pm_end)
 
         msg = msg_monthly_report(
             month_label = pm_label,
@@ -537,6 +544,7 @@ def send_monthly_report() -> None:
             setups      = setups,
             scores      = scores,
             h1_stats    = h1_stats,
+            ai_stats    = ai_stats,
             mom_delta   = mom_delta,
             prior_month_pnl = ppm_pnl,
             report_time = now.strftime("%H:%M SGT"),
@@ -677,7 +685,7 @@ def send_monthly_csv_export() -> None:
         period = f"{months[0]} → {months[-1]}" if months else _V16_START
 
         caption = (
-            f"📊 Cable AI Scalp v1.0 — Cumulative Trade Log\n"
+            f"📊 Cable AI Scalp v1.1 — Cumulative Trade Log\n"
             f"Period: {period}\n"
             f"Trades: {len(trades)}  ({wins}W / {losses}L)  WR {wr}%\n"
             f"Net P&L: ${net_pnl:+.2f}\n"
@@ -763,7 +771,7 @@ def send_monthly_signal_export() -> None:
 
         filename = f"cable_scalp_v19_signals_to_{now.strftime('%Y-%m-%d')}.csv"
         caption = (
-            f"📡 Cable AI Scalp v1.0 — Signal Log\n"
+            f"📡 Cable AI Scalp v1.1 — Signal Log\n"
             f"Period: 2026-04-26 → {now.strftime('%d %b %Y')}\n"
             f"Rows: {total_rows}  |  Fired: {fired}  |  Watched: {watched}  |  Blocked: {blocked}\n"
             f"Generated: {now.strftime('%d %b %Y %H:%M SGT')}"

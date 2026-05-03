@@ -1,11 +1,11 @@
-# Cable AI Scalp v1.0 Settings
+# Cable AI Scalp v1.1 Settings
 
 Main settings live in `settings.json`.
 
 ## Identity
 
 ```json
-"bot_name": "Cable AI Scalp v1.0"
+"bot_name": "Cable AI Scalp v1.1"
 ```
 
 ## Risk
@@ -45,3 +45,14 @@ AI_NEWS_GUARD_ENABLED=true
 ```
 
 `AI_NEWS_GUARD_ENABLED` is optional and overrides the JSON setting.
+
+## AI Guard Tracking
+
+```json
+"ai_tracking_enabled": true,
+"ai_tracking_track_blocked_setups": true,
+"ai_tracking_virtual_expiry_hours": 4,
+"ai_tracking_export_csv": true
+```
+
+These settings enable AI decision history and blocked-trade virtual TP/SL outcome tracking. The tracking layer is reporting-only and does not affect trading decisions.

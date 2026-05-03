@@ -1,4 +1,4 @@
-"""signal_logger.py — Cable AI Scalp v1.0
+"""signal_logger.py — Cable AI Scalp v1.1
 
 Logs every signal evaluation (score >= signal_log_min_score) to
 /data/signal_log.csv for future AI/ML training data collection.

@@ -1,4 +1,4 @@
-"""Main orchestrator for Cable AI Scalp v1.0 — GBP/USD M5 Scalper with AI News Guard
+"""Main orchestrator for Cable AI Scalp v1.1 — GBP/USD M5 Scalper with AI News Guard
 
 Dedicated GBP/USD (Cable) scalping bot. Single pair, clean data, focused strategy.
 
@@ -30,6 +30,10 @@ from pathlib import Path
 import pytz
 
 from ai_news_guard import ai_news_guard
+from ai_guard_tracker import (
+    record_ai_decision, link_trade, mark_trade_failed,
+    backfill_actual_trade_result, update_blocked_virtual_outcomes,
+)
 from calendar_fetcher import run_fetch as refresh_calendar
 from config_loader import DATA_DIR, get_bool_env, load_settings
 from database import Database
@@ -134,7 +138,7 @@ def _pip_size(settings: dict) -> float:
 def _pip_dp(pip: float) -> int:
     """Decimal places for price rounding given pip size."""
     if pip <= 0.0001: return 5   # GBP_USD (Cable)
-    if pip <= 0.01:   return 3   # JPY pairs (not used in Cable AI Scalp v1.0)
+    if pip <= 0.01:   return 3   # JPY pairs (not used in Cable AI Scalp v1.1)
     return 2
 
 
@@ -196,7 +200,7 @@ def _signal_payload(**kwargs):
 # ── Settings ──────────────────────────────────────────────────────────────────
 
 def validate_settings(settings: dict) -> dict:
-    required = ["pairs"]  # Cable AI Scalp v1.0: pair_sl_tp fixed pips used exclusively
+    required = ["pairs"]  # Cable AI Scalp v1.1: pair_sl_tp fixed pips used exclusively
     missing  = [k for k in required if k not in settings]
     if missing:
         raise ValueError(f"Missing required settings keys: {missing}")
@@ -236,6 +240,10 @@ def validate_settings(settings: dict) -> dict:
     settings.setdefault("ai_news_guard_block_action", True)
     settings.setdefault("ai_news_guard_fail_closed", False)
     settings.setdefault("ai_news_guard_timeout_sec", 12)
+    settings.setdefault("ai_tracking_enabled", True)
+    settings.setdefault("ai_tracking_track_blocked_setups", True)
+    settings.setdefault("ai_tracking_virtual_expiry_hours", 4)
+    settings.setdefault("ai_tracking_export_csv", True)
     settings.setdefault("loss_streak_cooldown_min",   30)
     settings.setdefault("orb_fresh_minutes",          60)
     settings.setdefault("orb_aging_minutes",          120)
@@ -862,6 +870,10 @@ def force_close_stale_trades(history: list, trader, alert, settings: dict,
                     log.info("[%s] Force closed trade %s | pnl=$%.2f | reason=%s",
                              instrument, trade_id, pnl or 0, reason)
                     try:
+                        backfill_actual_trade_result(str(trade_id), pnl or 0.0, trade.get("closed_at_sgt"))
+                    except Exception as _ai_track_exc:
+                        log.warning("AI tracking force-close backfill failed for trade %s: %s", trade_id, _ai_track_exc)
+                    try:
                         max_p = trade.get("max_pips_reached", 0) or 0
                         alert.send(
                             f"⏱ Force Close — {instrument.replace('_','/')}\n"
@@ -899,6 +911,10 @@ def backfill_pnl(history: list, trader, alert, settings: dict,
         trade["closed_at_sgt"]    = datetime.now(SGT).strftime("%Y-%m-%d %H:%M:%S")
         changed = True
         log.info("Back-filled P&L %s trade %s: $%.4f", instrument, trade_id, pnl)
+        try:
+            backfill_actual_trade_result(str(trade_id), pnl, trade.get("closed_at_sgt"))
+        except Exception as _ai_track_exc:
+            log.warning("AI tracking backfill failed for trade %s: %s", trade_id, _ai_track_exc)
 
         if pnl < 0:
             rt_file = _pair_runtime_file(instrument)
@@ -1279,6 +1295,13 @@ def _guard_phase(db, run_id, settings, alert, history, now_sgt, today, demo,
                      "checked_at_sgt": now_sgt.strftime("%Y-%m-%d %H:%M:%S")})
 
     history[:] = backfill_pnl(history, trader, alert, settings, instrument)
+    if bool(settings.get("ai_tracking_enabled", True)):
+        try:
+            _ai_virtual = update_blocked_virtual_outcomes(trader, instrument, now_sgt)
+            if _ai_virtual.get("updated") or _ai_virtual.get("expired"):
+                log.info("AI virtual tracking updated: %s", _ai_virtual, extra={"run_id": run_id})
+        except Exception as _ai_track_exc:
+            log.warning("AI virtual tracking update failed: %s", _ai_track_exc, extra={"run_id": run_id})
     if settings.get("breakeven_enabled", False):
         check_breakeven(history, trader, alert, settings, instrument)
 
@@ -1639,7 +1662,7 @@ def _signal_phase(db, run_id, settings, alert, trader, history,
                              status="SKIPPED_SPREAD_GUARD")
         return None
 
-    # ── AI News Guard (Cable AI Scalp v1.0) ────────────────────────────────
+    # ── AI News Guard (Cable AI Scalp v1.1) ────────────────────────────────
     # Existing GBP/USD calendar hard-lock and medium-impact penalty already ran
     # above. This optional OpenAI layer only reviews the news/headline risk
     # around an already-valid technical setup. It does not create signals,
@@ -1661,7 +1684,7 @@ def _signal_phase(db, run_id, settings, alert, trader, history,
         if isinstance(news_status, dict):
             _lookahead = list(news_status.get("lookahead") or news_status.get("events") or [])
         ai_payload = {
-            "bot": settings.get("bot_name", "Cable AI Scalp v1.0"),
+            "bot": settings.get("bot_name", "Cable AI Scalp v1.1"),
             "instrument": instrument,
             "instrument_display": instrument.replace("_", "/"),
             "timeframe": "M5",
@@ -1703,6 +1726,19 @@ def _signal_phase(db, run_id, settings, alert, trader, history,
             "action": _ai_action,
             "reason": _ai_reason,
         })
+        _ai_decision_id = None
+        try:
+            _ai_sl_price, _ai_tp_price = compute_sl_tp_prices(entry, direction, sl_price_dist, tp_price_dist, dp)
+            _ai_decision_id = record_ai_decision(
+                settings=settings, payload=ai_payload, ai_result=ai_guard_result,
+                entry=entry, sl_price=_ai_sl_price, tp_price=_ai_tp_price,
+                estimated_risk_usd=position_usd, estimated_reward_usd=reward_usd,
+                sl_pips=stop_pips, tp_pips=tp_pips,
+            )
+            if _ai_decision_id:
+                ai_guard_result["decision_id"] = _ai_decision_id
+        except Exception as _ai_track_exc:
+            log.warning("AI decision tracking failed: %s", _ai_track_exc, extra={"run_id": run_id})
         details = details + f" | 🤖 AI News Guard: {_ai_risk}/{_ai_action} — {_ai_reason}"
 
         if _ai_action == "CAUTION":
@@ -1763,6 +1799,7 @@ def _signal_phase(db, run_id, settings, alert, trader, history,
         "stop_pips": stop_pips, "tp_pips": tp_pips,
         "reward_usd": reward_usd, "cpr_w": cpr_w,
         "spread_pips": spread_pips, "bid": bid, "ask": ask,
+        "ai_guard_result": ai_guard_result,
         "margin_available": margin_available, "price_for_margin": price_for_margin,
         "margin_info": margin_info, "pip": pip, "dp": dp,
     })
@@ -1802,6 +1839,7 @@ def _execution_phase(db, run_id, settings, alert, trader, history,
     news_penalty     = ctx["news_penalty"]
     pip              = ctx["pip"]
     dp               = ctx["dp"]
+    ai_guard_result  = ctx.get("ai_guard_result") or {}
 
     # ── Hard dead zone execution block (defense in depth) ──────────────────
     # Even if session logic somehow passes, no new order can be placed
@@ -1902,10 +1940,26 @@ def _execution_phase(db, run_id, settings, alert, trader, history,
             ))
             log.error("[%s] Order failed: %s", instrument,
                       result.get("error"), extra={"run_id": run_id})
+            try:
+                mark_trade_failed(ai_guard_result.get("decision_id"), str(result.get("error", "ORDER_FAILED"))[:80])
+            except Exception as _ai_track_exc:
+                log.warning("AI tracking order-failed mark failed: %s", _ai_track_exc)
 
     if result.get("success"):
         record["trade_id"] = result.get("trade_id")
         record["status"]   = "FILLED"
+        try:
+            link_trade(ai_guard_result.get("decision_id"), record.get("trade_id"))
+            if ai_guard_result:
+                record["ai_news_guard"] = {
+                    "decision_id": ai_guard_result.get("decision_id"),
+                    "risk_level": ai_guard_result.get("risk_level"),
+                    "action": ai_guard_result.get("action"),
+                    "reason": ai_guard_result.get("reason"),
+                    "model": ai_guard_result.get("model"),
+                }
+        except Exception as _ai_track_exc:
+            log.warning("AI tracking trade link failed: %s", _ai_track_exc)
         fill_price = result.get("fill_price")
         if fill_price and fill_price > 0:
             ae                     = fill_price

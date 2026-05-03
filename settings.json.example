@@ -1,5 +1,5 @@
 {
-  "bot_name": "Cable AI Scalp v1.0",
+  "bot_name": "Cable AI Scalp v1.1",
   "demo_mode": true,
   "enabled": true,
   "_comment_pairs": "Per-pair settings override any matching global key for that pair's cycle.",
@@ -128,5 +128,10 @@
   ],
   "ai_news_guard_block_action": true,
   "ai_news_guard_fail_closed": false,
-  "ai_news_guard_timeout_sec": 12
+  "ai_news_guard_timeout_sec": 12,
+  "_comment_ai_tracking": "AI Guard decision tracking and blocked-trade virtual TP/SL outcome tracking. Observability only; does not alter trading logic.",
+  "ai_tracking_enabled": true,
+  "ai_tracking_track_blocked_setups": true,
+  "ai_tracking_virtual_expiry_hours": 4,
+  "ai_tracking_export_csv": true
 }

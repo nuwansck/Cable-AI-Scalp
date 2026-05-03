@@ -1,4 +1,4 @@
-"""Telegram message templates for Cable AI Scalp v2.4
+"""Telegram message templates for Cable AI Scalp v1.1
 AtomicFX-style: clean, state-change only, minimal noise.
 """
 from __future__ import annotations
@@ -37,7 +37,7 @@ def _split_banner(banner: str) -> tuple[str, str]:
     """Extract pair from banner.
     Handles both:
       '🇬🇧 LONDON [GBP/USD]'  → ('🇬🇧 LONDON [GBP/USD]', 'GBP/USD')
-      'Cable AI Scalp v2.4 | GBP/USD' → ('Cable AI Scalp v2.4', 'GBP/USD')
+      'Cable AI Scalp v1.1 | GBP/USD' → ('Cable AI Scalp v1.1', 'GBP/USD')
     """
     if "[" in banner and "]" in banner:
         pair = banner[banner.index("[")+1 : banner.index("]")]
@@ -482,12 +482,29 @@ def msg_startup(
     )
 
 
+
+def _ai_stats_section(ai_stats: dict | None) -> str:
+    """Render compact AI Guard tracking summary."""
+    if not ai_stats or ai_stats.get("total_decisions", 0) == 0:
+        return ""
+    impact = float(ai_stats.get("estimated_ai_impact_usd") or 0)
+    impact_icon = "🟢" if impact > 0 else ("🔴" if impact < 0 else "⚪")
+    return (
+        f"{_DIV}\nAI Guard Tracking\n"
+        f"  Decisions: {ai_stats.get('total_decisions', 0)}  "
+        f"Allow {ai_stats.get('allowed', 0)} | Caution {ai_stats.get('cautioned', 0)} | Block {ai_stats.get('blocked', 0)}\n"
+        f"  Blocked:   {ai_stats.get('blocked_losers', 0)} losers avoided | "
+        f"{ai_stats.get('blocked_winners', 0)} winners missed | "
+        f"{ai_stats.get('blocked_open', 0)} open | {ai_stats.get('blocked_expired', 0)} expired\n"
+        f"  Est impact: ${impact:+.2f} {impact_icon}\n"
+    )
+
 # ── 15. Daily report ─────────────────────────────────────────────────────────
 
 def msg_daily_report(
     day_label, day_stats, wtd_stats, mtd_stats, open_count, report_time,
     blocked_spread=0, blocked_news=0, blocked_signal=0,
-    session_stats=None,
+    session_stats=None, ai_stats=None,
 ) -> str:
     # No trades today
     if day_stats["count"] == 0:
@@ -497,6 +514,7 @@ def msg_daily_report(
             f"No trades closed today\n"
             f"{_DIV}\n"
             f"Month-to-date\n  {_mini_stats(mtd_stats)}\n"
+            f"{_ai_stats_section(ai_stats)}"
             f"{_DIV}\n"
             f"{oline}"
             f"Report: {report_time}"
@@ -542,6 +560,7 @@ def msg_daily_report(
         f"{bst}{wst}{islline}{bline}"
         f"{_DIV}\n"
         f"Month-to-date\n  {_mini_stats(mtd_stats)}\n"
+        f"{_ai_stats_section(ai_stats)}"
         f"{_DIV}\n"
         f"{oline}"
         f"Report: {report_time}"
@@ -609,7 +628,7 @@ def _h1_section(h1_stats: dict | None, h1_filter_mode: str = "strict") -> str:
     return "".join(lines)
 
 
-def msg_weekly_report(week_label, stats, sessions, setups, report_time, pairs=None, h1_stats=None, h1_filter_mode="strict") -> str:
+def msg_weekly_report(week_label, stats, sessions, setups, report_time, pairs=None, h1_stats=None, h1_filter_mode="strict", ai_stats=None) -> str:
     if stats["count"] == 0:
         return f"📅 Weekly Report — {week_label}\n{_DIV}\nNo closed trades.\nReport: {report_time}"
 
@@ -655,6 +674,7 @@ def msg_weekly_report(week_label, stats, sessions, setups, report_time, pairs=No
         f"{_DIV}\nBy Pair\n{_sec(pairs) if pairs else ''}"
         f"{_DIV}\nBy Setup\n{_setup_sec(setups)}"
         + _h1_section(h1_stats, h1_filter_mode=h1_filter_mode)
+        + _ai_stats_section(ai_stats)
         + f"{_DIV}\n{verdict}\nReport: {report_time}"
     )
 
@@ -663,7 +683,7 @@ def msg_weekly_report(week_label, stats, sessions, setups, report_time, pairs=No
 
 def msg_monthly_report(month_label, stats, sessions, setups, scores,
                        mom_delta, prior_month_pnl, report_time,
-                       h1_stats=None, h1_filter_mode="strict") -> str:
+                       h1_stats=None, h1_filter_mode="strict", ai_stats=None) -> str:
     if stats["count"] == 0:
         return f"📆 Monthly Report — {month_label}\n{_DIV}\nNo closed trades.\nReport: {report_time}"
 
@@ -713,5 +733,6 @@ def msg_monthly_report(month_label, stats, sessions, setups, scores,
         f"{_DIV}\nBy Setup\n{_sec(setups)}"
         f"{_DIV}\nBy Score\n{_sec(scores, w=8)}"
         + _h1_section(h1_stats, h1_filter_mode=h1_filter_mode)
+        + _ai_stats_section(ai_stats)
         + f"{_DIV}\n{verdict}\n💡 {rec}\nReport: {report_time}"
     )
