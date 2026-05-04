@@ -1,4 +1,4 @@
-"""Main orchestrator for Cable AI Scalp v1.1 — GBP/USD M5 Scalper with AI News Guard
+"""Main orchestrator for Cable AI Scalp v1.2 — GBP/USD M5 Scalper with AI News Guard
 
 Dedicated GBP/USD (Cable) scalping bot. Single pair, clean data, focused strategy.
 
@@ -53,6 +53,7 @@ from telegram_templates import (
     msg_news_block, msg_news_penalty, msg_cooldown_started, msg_daily_cap,
     msg_spread_skip, msg_order_failed, msg_error, msg_friday_cutoff,
     msg_margin_adjustment, msg_new_day_resume, msg_session_open, msg_ai_guard_result,
+    _clean_session,
 )
 from reconcile_state import reconcile_runtime_state, startup_oanda_reconcile
 
@@ -138,7 +139,7 @@ def _pip_size(settings: dict) -> float:
 def _pip_dp(pip: float) -> int:
     """Decimal places for price rounding given pip size."""
     if pip <= 0.0001: return 5   # GBP_USD (Cable)
-    if pip <= 0.01:   return 3   # JPY pairs (not used in Cable AI Scalp v1.1)
+    if pip <= 0.01:   return 3   # JPY pairs (not used in Cable AI Scalp v1.2)
     return 2
 
 
@@ -200,7 +201,7 @@ def _signal_payload(**kwargs):
 # ── Settings ──────────────────────────────────────────────────────────────────
 
 def validate_settings(settings: dict) -> dict:
-    required = ["pairs"]  # Cable AI Scalp v1.1: pair_sl_tp fixed pips used exclusively
+    required = ["pairs"]  # Cable AI Scalp v1.2: pair_sl_tp fixed pips used exclusively
     missing  = [k for k in required if k not in settings]
     if missing:
         raise ValueError(f"Missing required settings keys: {missing}")
@@ -1662,7 +1663,7 @@ def _signal_phase(db, run_id, settings, alert, trader, history,
                              status="SKIPPED_SPREAD_GUARD")
         return None
 
-    # ── AI News Guard (Cable AI Scalp v1.1) ────────────────────────────────
+    # ── AI News Guard (Cable AI Scalp v1.2) ────────────────────────────────
     # Existing GBP/USD calendar hard-lock and medium-impact penalty already ran
     # above. This optional OpenAI layer only reviews the news/headline risk
     # around an already-valid technical setup. It does not create signals,
@@ -1684,7 +1685,7 @@ def _signal_phase(db, run_id, settings, alert, trader, history,
         if isinstance(news_status, dict):
             _lookahead = list(news_status.get("lookahead") or news_status.get("events") or [])
         ai_payload = {
-            "bot": settings.get("bot_name", "Cable AI Scalp v1.1"),
+            "bot": settings.get("bot_name", "Cable AI Scalp v1.2"),
             "instrument": instrument,
             "instrument_display": instrument.replace("_", "/"),
             "timeframe": "M5",

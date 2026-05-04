@@ -1,11 +1,11 @@
-# Cable AI Scalp v1.1 Settings
+# Cable AI Scalp v1.2 Settings
 
 Main settings live in `settings.json`.
 
 ## Identity
 
 ```json
-"bot_name": "Cable AI Scalp v1.1"
+"bot_name": "Cable AI Scalp v1.2"
 ```
 
 ## Risk

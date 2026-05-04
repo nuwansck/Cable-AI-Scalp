@@ -1,6 +1,6 @@
-# Cable AI Scalp v1.1
+# Cable AI Scalp v1.2
 
-Separate AI-enabled GBP/USD scalping bot based on Cable AI Scalp v1.1, with the Rogue-H1 v2.7 AI News Guard pattern adapted for Cable.
+Separate AI-enabled GBP/USD scalping bot based on Cable AI Scalp v1.2, with the Rogue-H1 v2.7 AI News Guard pattern adapted for Cable.
 
 ## Purpose
 
@@ -42,7 +42,7 @@ AI_NEWS_GUARD_ENABLED=true
 
 ## Current baseline settings
 
-- Bot name: Cable AI Scalp v1.1
+- Bot name: Cable AI Scalp v1.2
 - Risk: $60 score 4 / $75 score 5–6
 - Relevant news currencies: GBP + USD
 - AI model: gpt-4o-mini
@@ -57,7 +57,7 @@ Calendar hard-lock remains priority. AI cannot override a fixed high-impact news
 
 ## AI Guard Tracking v1.1
 
-Cable AI Scalp v1.1 adds observability for AI decisions:
+Cable AI Scalp v1.2 adds observability for AI decisions:
 
 - `/data/ai_guard_history.json` stores every AI Guard decision.
 - `/data/ai_guard_history.csv` mirrors the same data for export/review.
