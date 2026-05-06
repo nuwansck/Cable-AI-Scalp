@@ -1,5 +1,5 @@
 {
-  "bot_name": "Cable AI Scalp v1.1",
+  "bot_name": "Cable AI Scalp v1.3",
   "demo_mode": true,
   "enabled": true,
   "_comment_pairs": "Per-pair settings override any matching global key for that pair's cycle.",
@@ -115,8 +115,6 @@
   "be_trigger_pips": 20,
   "signal_logging_enabled": true,
   "signal_log_min_score": 3,
-  "max_trade_duration_hours": 4,
-  "force_close_at_session_end": true,
   "max_trades_us_cont": 4,
   "_comment_ai_news_guard": "Optional OpenAI/ChatGPT GBP/USD news-risk guard. Calendar hard lock remains priority and cannot be overridden by AI. For separate AI bot testing, enabled by default; set AI_NEWS_GUARD_ENABLED=false or ai_news_guard_enabled=false to disable.",
   "ai_news_guard_enabled": true,

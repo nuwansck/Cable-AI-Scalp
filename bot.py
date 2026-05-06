@@ -227,8 +227,6 @@ def validate_settings(settings: dict) -> dict:
     settings.setdefault("telegram_min_score_alert",   4)
     settings.setdefault("signal_logging_enabled",     False)
     settings.setdefault("signal_log_min_score",        3)
-    settings.setdefault("max_trade_duration_hours",    4)
-    settings.setdefault("force_close_at_session_end",  True)
     settings.setdefault("max_trades_us_cont",          4)
     settings.setdefault("friday_cutoff_hour_sgt",     23)
     settings.setdefault("friday_cutoff_minute_sgt",   0)
@@ -809,89 +807,6 @@ def track_max_pips(history: list, trader, settings: dict, instrument: str) -> bo
 
 
 
-def force_close_stale_trades(history: list, trader, alert, settings: dict,
-                              instrument: str, now_sgt, session_end_hour: int) -> bool:
-    """Force-close any open trade that has exceeded max_trade_duration_hours
-    or whose originating session has ended.
-
-    v2.0: Prevents M5 scalp trades from becoming accidental overnight swing trades.
-    Max duration: 4 hours (configurable via max_trade_duration_hours).
-    Session end: closes London trades when London session ends at 21:00 SGT.
-    """
-    max_hours = float(settings.get("max_trade_duration_hours", 4))
-    force_at_end = bool(settings.get("force_close_at_session_end", True))
-    changed = False
-
-    for trade in history:
-        if trade.get("instrument") != instrument: continue
-        if trade.get("status") != "FILLED": continue
-        if trade.get("realized_pnl_usd") is not None: continue
-
-        trade_id = trade.get("trade_id")
-        if not trade_id: continue
-
-        open_ts = trade.get("timestamp_sgt", "")
-        if not open_ts: continue
-
-        try:
-            open_dt = _parse_sgt_timestamp(open_ts)
-            if not open_dt: continue
-            elapsed_hours = (now_sgt - open_dt).total_seconds() / 3600
-
-            reason = None
-
-            # Check max duration
-            if elapsed_hours >= max_hours:
-                reason = f"Max duration {max_hours:.0f}h exceeded ({elapsed_hours:.1f}h open)"
-
-            # Check session end — only if session has actually ended
-            if force_at_end and reason is None:
-                trade_session = trade.get("macro_session", "")
-                if trade_session == "London" and now_sgt.hour >= 21:
-                    reason = f"London session ended — force closing after {elapsed_hours:.1f}h"
-                elif trade_session == "Tokyo" and now_sgt.hour >= 16:
-                    reason = f"Tokyo session ended — force closing after {elapsed_hours:.1f}h"
-                elif trade_session == "US":
-                    us_end = int(settings.get("us_session_end_hour", 23))
-                    if now_sgt.date() > open_dt.date() or now_sgt.hour > us_end:
-                        reason = f"US session ended — force closing after {elapsed_hours:.1f}h"
-                elif trade_session == "US_Cont" and now_sgt.hour >= 4:
-                    reason = f"US Cont. session ended — force closing after {elapsed_hours:.1f}h"
-
-            if reason:
-                log.info("[%s] Force closing trade %s: %s", instrument, trade_id, reason)
-                result = trader.close_trade(str(trade_id))
-                if result:
-                    pnl = trader.get_trade_pnl(str(trade_id))
-                    trade["realized_pnl_usd"] = pnl or 0.0
-                    trade["closed_at_sgt"]    = now_sgt.strftime("%Y-%m-%d %H:%M:%S")
-                    trade["close_reason"]     = "FORCE_CLOSE"
-                    trade["force_close_reason"] = reason
-                    changed = True
-                    log.info("[%s] Force closed trade %s | pnl=$%.2f | reason=%s",
-                             instrument, trade_id, pnl or 0, reason)
-                    try:
-                        backfill_actual_trade_result(str(trade_id), pnl or 0.0, trade.get("closed_at_sgt"))
-                    except Exception as _ai_track_exc:
-                        log.warning("AI tracking force-close backfill failed for trade %s: %s", trade_id, _ai_track_exc)
-                    try:
-                        max_p = trade.get("max_pips_reached", 0) or 0
-                        alert.send(
-                            f"⏱ Force Close — {instrument.replace('_','/')}\n"
-                            f"Trade {trade_id} | {trade.get('direction','')}\n"
-                            f"Reason: {reason}\n"
-                            f"P&L: ${pnl or 0:.2f} | Max pips reached: {max_p:.1f}p"
-                        )
-                    except Exception:
-                        pass
-                else:
-                    log.warning("[%s] Force close of trade %s failed — will retry next cycle",
-                                instrument, trade_id)
-        except Exception as exc:
-            log.warning("force_close_stale_trades error: %s", exc)
-
-    return changed
-
 
 # ── PnL backfill ───────────────────────────────────────────────────────────────
 
@@ -1028,24 +943,6 @@ def _guard_phase(db, run_id, settings, alert, history, now_sgt, today, demo,
                         summary={"stage": "market_guard", "reason": "Monday pre-open"})
         return None
 
-    # ── Dead zone early exit — skip ALL API calls if no open trades ────────
-    # 04:00-07:59 SGT: no new entries allowed. If no open trades to manage,
-    # skip before any OANDA call. If trades are open, fall through for
-    # reconcile + PnL management.
-    if is_dead_zone_time(now_sgt, settings):
-        _open_in_history = [t for t in history
-                            if not t.get("realized_pnl_usd") and t.get("status") != "FAILED"]
-        if not _open_in_history:
-            log.debug("[%s] Dead zone + no open trades — skipping cycle.",
-                      instrument, extra={"run_id": run_id})
-            update_runtime_state(last_cycle_finished=now_sgt.strftime("%Y-%m-%d %H:%M:%S"),
-                                 status="SKIPPED_DEAD_ZONE")
-            db.finish_cycle(run_id, status="SKIPPED",
-                            summary={"stage": "dead_zone_early_exit",
-                                     "instrument": instrument})
-            return None
-        log.info("[%s] Dead zone — %d open trade(s) present, management mode only. No new entries.",
-                 instrument, len(_open_in_history), extra={"run_id": run_id})
 
     if settings.get("news_filter_enabled", True):
         try:
@@ -1093,7 +990,7 @@ def _guard_phase(db, run_id, settings, alert, history, now_sgt, today, demo,
         if session is None:
             if is_dead_zone_time(now_sgt, settings):
                 log_event("DEAD_ZONE_SKIP",
-                          f"[{instrument.replace('_', '/')}] Dead zone — management active.",
+                          f"[{instrument.replace('_', '/')}] Dead zone.",
                           run_id=run_id)
             else:
                 log.info("[%s] Outside all sessions.", instrument,
@@ -1308,11 +1205,6 @@ def _guard_phase(db, run_id, settings, alert, history, now_sgt, today, demo,
 
     # Track peak pip distance on every open trade
     if track_max_pips(history, trader, settings, instrument):
-        save_history(history)
-
-    # Force-close stale trades (max duration or session ended)
-    _sess_end_h = int(settings.get("london_session_end_hour", 20)) + 1
-    if force_close_stale_trades(history, trader, alert, settings, instrument, now_sgt, _sess_end_h):
         save_history(history)
 
     # ── SL re-entry gap ───────────────────────────────────────────────────────

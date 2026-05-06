@@ -1,2 +1,2 @@
-VERSION     = "1.2.0"
-DESCRIPTION = "Cable AI Scalp v1.2 — schedule refinement, weekly CSV export, import fix"
+VERSION     = "1.3.0"
+DESCRIPTION = "Cable AI Scalp v1.3 — remove force-close + backport all v2.15 fixes"

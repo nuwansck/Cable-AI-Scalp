@@ -180,17 +180,30 @@ class OandaTrader:
         return len(self.get_open_trades(instrument))
 
     def get_recent_closed_trades(self, instrument: str | None = None, count: int = 20) -> list:
+        """Return recently closed trades for the given instrument.
+
+        Queries state=ALL and filters state=CLOSED in Python to ensure all
+        genuinely closed trades are returned regardless of OANDA index quirks.
+        """
         try:
+            params: dict = {"state": "ALL", "count": count}
+            if instrument:
+                params["instrument"] = instrument
             r = self._request(
                 "GET",
                 f"/v3/accounts/{self.account_id}/trades",
-                params={"state": "CLOSED", "count": count},
+                params=params,
                 timeout=10,
             )
             if r.status_code == 200:
-                trades = r.json().get("trades", [])
-                if instrument:
-                    trades = [t for t in trades if t.get("instrument") == instrument]
+                raw = r.json()
+                all_trades = raw.get("trades", [])
+                trades = [
+                    t for t in all_trades
+                    if (not instrument or t.get("instrument") in (
+                            instrument, instrument.replace("_", "/")))
+                    and t.get("state") == "CLOSED"
+                ]
                 return trades
             log.warning("get_recent_closed_trades failed: %s %s", r.status_code, r.text[:200])
             return []
@@ -331,52 +344,6 @@ class OandaTrader:
         except Exception as e:
             log.warning("get_open_trade error: %s", e)
             return None
-
-
-    def get_today_closed_transactions(self, instrument: str, today_sgt: str) -> list:
-        """Fetch all closing ORDER_FILL transactions for today (SGT date YYYY-MM-DD).
-
-        Uses OANDA /v3/accounts/.../transactions endpoint with a UTC time window
-        derived from the SGT calendar day. Returns closing fills for the instrument.
-        Called by startup_oanda_reconcile() to ensure the loss cap sees the correct
-        count even after a mid-day redeploy.
-        """
-        import pytz
-        from datetime import datetime, timedelta
-
-        sgt = pytz.timezone("Asia/Singapore")
-        utc = pytz.utc
-        try:
-            day_start = sgt.localize(datetime.strptime(today_sgt, "%Y-%m-%d"))
-        except Exception as exc:
-            log.warning("get_today_closed_transactions: bad date %s: %s", today_sgt, exc)
-            return []
-        day_end  = day_start + timedelta(days=1)
-        from_utc = day_start.astimezone(utc).strftime("%Y-%m-%dT%H:%M:%S.000000000Z")
-        to_utc   = day_end.astimezone(utc).strftime("%Y-%m-%dT%H:%M:%S.000000000Z")
-
-        try:
-            r = self._request(
-                "GET",
-                f"/v3/accounts/{self.account_id}/transactions",
-                params={"from": from_utc, "to": to_utc, "type": "ORDER_FILL"},
-                timeout=20,
-            )
-            if r.status_code == 200:
-                txns = r.json().get("transactions", [])
-                closing = [
-                    t for t in txns
-                    if t.get("instrument") == instrument and t.get("tradesClosed")
-                ]
-                return closing
-            log.warning(
-                "get_today_closed_transactions HTTP %s: %s",
-                r.status_code, r.text[:200],
-            )
-            return []
-        except Exception as exc:
-            log.error("get_today_closed_transactions error: %s", exc)
-            return []
 
     def close_position(self, instrument):
         try:
