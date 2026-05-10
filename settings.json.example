@@ -81,6 +81,8 @@
   "calendar_prune_days_ahead": 21,
   "startup_dedup_seconds": 90,
   "calendar_fetch_interval_min": 60,
+  "news_fail_closed": true,
+  "calendar_cache_max_age_hours": 24,
   "london_session_start_hour": 16,
   "london_session_end_hour": 20,
   "us_session_start_hour": 99,

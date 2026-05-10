@@ -233,6 +233,8 @@ def validate_settings(settings: dict) -> dict:
     settings.setdefault("news_lookahead_min",         120)
     settings.setdefault("news_medium_penalty_score",  -1)
     settings.setdefault("news_relevant_currencies", ["GBP", "USD"])
+    settings.setdefault("news_fail_closed",           True)
+    settings.setdefault("calendar_cache_max_age_hours", 24)
     settings.setdefault("ai_news_guard_enabled", True)
     settings.setdefault("ai_news_guard_model", "gpt-4o-mini")
     settings.setdefault("ai_news_guard_apply_to_scores", [4, 5, 6])
@@ -1060,6 +1062,8 @@ def _guard_phase(db, run_id, settings, alert, history, now_sgt, today, demo,
             lookahead_minutes=int(settings.get("news_lookahead_min",      120)),
             medium_penalty  =int(settings.get("news_medium_penalty_score", -1)),
             relevant_currencies=settings.get("news_relevant_currencies", ["GBP", "USD"]),
+            fail_closed=bool(settings.get("news_fail_closed", True)),
+            max_cache_age_hours=int(settings.get("calendar_cache_max_age_hours", 24)),
         )
         news_status  = nf.get_status_now()
         blocked      = bool(news_status.get("blocked"))

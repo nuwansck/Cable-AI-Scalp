@@ -38,14 +38,33 @@ class NewsFilter:
 
     def __init__(self, before_minutes: int = 30, after_minutes: int = 30,
                  lookahead_minutes: int = 120, medium_penalty: int = DEFAULT_MEDIUM_PENALTY,
-                 relevant_currencies: list[str] | tuple[str, ...] | set[str] | None = None):
+                 relevant_currencies: list[str] | tuple[str, ...] | set[str] | None = None,
+                 fail_closed: bool = True, max_cache_age_hours: int = 24):
         self.before_minutes    = before_minutes
         self.after_minutes     = after_minutes
         self.lookahead_minutes = lookahead_minutes
         self.medium_penalty    = int(medium_penalty)
         self.relevant_currencies = {str(c).upper() for c in (relevant_currencies or ["GBP", "USD"])}
+        self.fail_closed       = bool(fail_closed)
+        self.max_cache_age_hours = int(max_cache_age_hours or 24)
         self.sg_tz = pytz.timezone("Asia/Singapore")
         self.path = CALENDAR_CACHE_FILE
+
+    def _cache_failure(self, reason: str) -> dict:
+        """Return a safe news-filter status when calendar data is unavailable.
+
+        Matches Cable Scalp v2.15 / Dawn v1.5 fail-closed behaviour:
+        missing, stale, invalid, or unreadable calendar cache blocks new
+        entries when news_fail_closed=true.
+        """
+        return {
+            "blocked": self.fail_closed,
+            "penalty": 0,
+            "reason": reason,
+            "severity": "calendar_cache",
+            "event": {"name": reason, "time_sgt": ""},
+            "lookahead": [],
+        }
 
     def classify_event(self, event: dict) -> str | None:
         name     = str(event.get("name", "")).lower()
@@ -65,17 +84,31 @@ class NewsFilter:
         return None
 
     def get_status_now(self) -> dict:
+        now = datetime.now(self.sg_tz)
+
         if not self.path.exists():
-            return {"blocked": False, "penalty": 0, "reason": "No calendar_cache.json found", "severity": None}
+            return self._cache_failure("calendar_cache.json missing — news status unknown")
+
+        try:
+            cache_mtime = datetime.fromtimestamp(self.path.stat().st_mtime, tz=self.sg_tz)
+            cache_age = now - cache_mtime
+            if cache_age > timedelta(hours=self.max_cache_age_hours):
+                return self._cache_failure(
+                    f"calendar_cache.json stale ({cache_age.total_seconds()/3600:.1f}h old; max {self.max_cache_age_hours}h)"
+                )
+        except Exception as e:
+            log.warning("Could not stat calendar_cache.json (%s)", e)
+            return self._cache_failure(f"Calendar cache stat failed — news status unknown ({e})")
 
         try:
             with open(self.path, "r", encoding="utf-8") as f:
                 events = json.load(f)
+            if not isinstance(events, list):
+                return self._cache_failure("calendar_cache.json invalid format — news status unknown")
         except Exception as e:
-            log.warning("Could not read calendar_cache.json (%s) — skipping news check.", e)
-            return {"blocked": False, "penalty": 0, "reason": f"Calendar cache unreadable — news check skipped ({e})", "severity": None}
+            log.warning("Could not read calendar_cache.json (%s)", e)
+            return self._cache_failure(f"Calendar cache unreadable — news status unknown ({e})")
 
-        now = datetime.now(self.sg_tz)
         active_medium = None
 
         for event in events:
