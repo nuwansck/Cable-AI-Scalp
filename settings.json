@@ -125,7 +125,7 @@
     6
   ],
   "ai_news_guard_block_action": true,
-  "ai_news_guard_fail_closed": false,
+  "ai_news_guard_fail_closed": true,
   "ai_news_guard_timeout_sec": 12,
   "_comment_ai_tracking": "AI Guard decision tracking and blocked-trade virtual TP/SL outcome tracking. Observability only; does not alter trading logic.",
   "ai_tracking_enabled": true,
