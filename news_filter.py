@@ -51,12 +51,7 @@ class NewsFilter:
         self.path = CALENDAR_CACHE_FILE
 
     def _cache_failure(self, reason: str) -> dict:
-        """Return a safe news-filter status when calendar data is unavailable.
-
-        Matches Cable Scalp v2.15 / Dawn v1.5 fail-closed behaviour:
-        missing, stale, invalid, or unreadable calendar cache blocks new
-        entries when news_fail_closed=true.
-        """
+        """Fail closed for missing/stale/invalid calendar cache when configured."""
         return {
             "blocked": self.fail_closed,
             "penalty": 0,
@@ -84,21 +79,19 @@ class NewsFilter:
         return None
 
     def get_status_now(self) -> dict:
-        now = datetime.now(self.sg_tz)
-
         if not self.path.exists():
             return self._cache_failure("calendar_cache.json missing — news status unknown")
 
         try:
             cache_mtime = datetime.fromtimestamp(self.path.stat().st_mtime, tz=self.sg_tz)
-            cache_age = now - cache_mtime
+            cache_age = datetime.now(self.sg_tz) - cache_mtime
             if cache_age > timedelta(hours=self.max_cache_age_hours):
                 return self._cache_failure(
                     f"calendar_cache.json stale ({cache_age.total_seconds()/3600:.1f}h old; max {self.max_cache_age_hours}h)"
                 )
         except Exception as e:
             log.warning("Could not stat calendar_cache.json (%s)", e)
-            return self._cache_failure(f"Calendar cache stat failed — news status unknown ({e})")
+            return self._cache_failure(f"calendar_cache.json unreadable/stat failed — news status unknown ({e})")
 
         try:
             with open(self.path, "r", encoding="utf-8") as f:
@@ -107,8 +100,9 @@ class NewsFilter:
                 return self._cache_failure("calendar_cache.json invalid format — news status unknown")
         except Exception as e:
             log.warning("Could not read calendar_cache.json (%s)", e)
-            return self._cache_failure(f"Calendar cache unreadable — news status unknown ({e})")
+            return self._cache_failure(f"calendar_cache.json unreadable — news status unknown ({e})")
 
+        now = datetime.now(self.sg_tz)
         active_medium = None
 
         for event in events:

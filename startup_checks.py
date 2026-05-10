@@ -51,10 +51,16 @@ def run_startup_checks() -> list[str]:
             pass
 
     if not CALENDAR_CACHE_FILE.exists():
-        warnings.append(
-            "calendar_cache.json not found — news filter will pass all trades until "
-            "the first successful calendar fetch completes. Resolves on the first cycle."
-        )
+        if bool(settings.get("news_fail_closed", True)):
+            warnings.append(
+                "calendar_cache.json not found — fail-closed news filter will block new entries until "
+                "the first successful calendar fetch completes. Resolves on the first cycle."
+            )
+        else:
+            warnings.append(
+                "calendar_cache.json not found — news filter will pass all trades until "
+                "the first successful calendar fetch completes. Resolves on the first cycle."
+            )
 
     # global concurrent-trade cap sanity
     max_total = int(settings.get("max_total_open_trades", 1))
