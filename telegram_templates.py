@@ -432,6 +432,7 @@ def msg_startup(
     position_full_usd=48, position_partial_usd=30, session_thresholds=None,
     tg_min_score=4, h1_filter_enabled=True, h1_filter_mode="strict",
     ai_news_guard_enabled=False, ai_news_guard_model="gpt-4o-mini",
+    tokyo_fresh_cross_min_score=None,
 ) -> str:
     thr     = session_thresholds or {}
     lon_thr = thr.get("London", min_score)
@@ -457,7 +458,7 @@ def msg_startup(
         f"{_DIV}\n"
         f"Sessions (SGT = UTC+8)\n"
         f"  ✈️  {dead_zone_start:02d}:00–{dead_zone_end:02d}:59  Dead zone\n"
-        f"  🗼 {tokyo_start:02d}:00–{tokyo_end:02d}:59  Tokyo      max {max_trades_tokyo}  score≥{tok_thr}\n"
+        f"  🗼 {tokyo_start:02d}:00–{tokyo_end:02d}:59  Tokyo      max {max_trades_tokyo}  score≥{tok_thr} (fresh cross ≥{tokyo_fresh_cross_min_score or tok_thr})\n"
         f"  🇬🇧 {london_start:02d}:00–{london_end:02d}:59  London     max {max_trades_london}  score≥{lon_thr}\n"
         + (f"  🚫 21:00–23:59  US session   disabled\n" if us_start >= 99 else
            f"  🗽 {us_start:02d}:00–{us_end:02d}:59  US session max {max_trades_us}  score≥{us_thr}\n")

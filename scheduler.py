@@ -320,6 +320,7 @@ def main():
                 session_thresholds=settings.get('session_thresholds', {}),
                 ai_news_guard_enabled=bool(settings.get('ai_news_guard_enabled', False)),
                 ai_news_guard_model=str(settings.get('ai_news_guard_model', 'gpt-4o-mini')),
+                tokyo_fresh_cross_min_score=settings.get('tokyo_fresh_cross_min_score'),
             ))
             _state["last_startup_ts"] = _now_ts
             save_json(RUNTIME_STATE_FILE, _state)
