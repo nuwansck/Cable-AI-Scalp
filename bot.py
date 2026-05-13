@@ -245,7 +245,7 @@ def validate_settings(settings: dict) -> dict:
     settings.setdefault("ai_tracking_track_blocked_setups", True)
     settings.setdefault("ai_tracking_virtual_expiry_hours", 4)
     settings.setdefault("ai_tracking_export_csv", True)
-    settings.setdefault("loss_streak_cooldown_min",   30)
+    settings.setdefault("loss_streak_cooldown_min",   60)
     settings.setdefault("orb_fresh_minutes",          60)
     settings.setdefault("orb_aging_minutes",          120)
     settings.setdefault("min_rr_ratio",               1.3)
@@ -1337,6 +1337,18 @@ def _signal_phase(db, run_id, settings, alert, trader, history,
     )
 
     cpr_w = levels.get("cpr_width_pct", 0)
+
+    # CPR width filter — skip on high-volatility days where CPR is too wide to be useful
+    _cpr_max_width = float(settings.get("cpr_max_width_pct", 0.0))
+    if _cpr_max_width > 0 and cpr_w > _cpr_max_width:
+        log.info("[%s] CPR too wide (%.3f%% > %.3f%%) — skipping.", instrument, cpr_w, _cpr_max_width)
+        update_runtime_state(last_cycle_finished=now_sgt.strftime("%Y-%m-%d %H:%M:%S"),
+                             status="SKIPPED_CPR_TOO_WIDE")
+        db.finish_cycle(run_id, status="SKIPPED",
+                        summary={"stage": "cpr_width_filter", "cpr_width_pct": cpr_w,
+                                 "instrument": instrument})
+        return None
+
     # Resolve per-session threshold BEFORE the closure so all _send_signal_update
     # calls display the correct session threshold (not the global fallback).
     _thr = int(ctx.get("threshold", settings.get("signal_threshold", 4)))
@@ -1435,6 +1447,15 @@ def _signal_phase(db, run_id, settings, alert, trader, history,
         return None
 
     signal_blockers = list(levels.get("signal_blockers") or [])
+
+    # ORB max age guard — block entry if ORB is too old to be meaningful
+    _orb_max_age = int(settings.get("orb_max_age_minutes", 120))
+    _orb_age     = int(levels.get("orb_age_min", 0))
+    _orb_formed  = bool(levels.get("orb_formed", False))
+    if _orb_formed and _orb_max_age > 0 and _orb_age > _orb_max_age:
+        signal_blockers.append(
+            f"ORB too old ({_orb_age}min > {_orb_max_age}min cap) — breakout no longer valid"
+        )
 
     # H1 strict block — only when h1_filter_mode = "strict"
     _h1_mode    = settings.get("h1_filter_mode", "soft")

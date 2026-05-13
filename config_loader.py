@@ -191,6 +191,10 @@ def load_settings() -> dict:
     st.setdefault('Tokyo', 5)
     # Tokyo fresh-cross override: fresh cross setups use a lower threshold than trend setups
     settings.setdefault('tokyo_fresh_cross_min_score', 4)
+    # ORB max age cap — entries blocked if ORB older than this (0 = disabled)
+    settings.setdefault('orb_max_age_minutes', 120)
+    # CPR width filter — skip cycles where CPR is too wide (0.0 = disabled)
+    settings.setdefault('cpr_max_width_pct', 0.30)
     spl = settings.setdefault('spread_limits', {})
     spl.setdefault('US_Cont', spl.get('US', 5))
 

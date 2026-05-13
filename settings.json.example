@@ -1,5 +1,5 @@
 {
-  "bot_name": "Cable AI Scalp v1.4",
+  "bot_name": "Cable AI Scalp v1.5",
   "demo_mode": true,
   "enabled": true,
   "_comment_pairs": "Per-pair settings override any matching global key for that pair's cycle.",
@@ -34,7 +34,7 @@
   "max_trades_london": 4,
   "max_trades_us": 4,
   "max_losing_trades_session": 2,
-  "loss_streak_cooldown_min": 30,
+  "loss_streak_cooldown_min": 60,
   "sl_reentry_gap_min": 10,
   "max_spread_pips": 5,
   "spread_limits": {
@@ -134,5 +134,7 @@
   "ai_tracking_track_blocked_setups": true,
   "ai_tracking_virtual_expiry_hours": 4,
   "ai_tracking_export_csv": true,
-  "tokyo_fresh_cross_min_score": 4
+  "tokyo_fresh_cross_min_score": 4,
+  "orb_max_age_minutes": 120,
+  "cpr_max_width_pct": 0.3
 }

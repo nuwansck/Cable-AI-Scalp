@@ -1,42 +1,38 @@
 # Changelog
 
-## Cable AI Scalp v1.4 — 2026-05-13 — Narrower dead zone + Tokyo fresh-cross threshold
+## Cable AI Scalp v1.5 — 2026-05-13 — ORB max age cap, CPR width filter, loss cooldown
 
-### Change 1 — Dead zone narrowed to 04:00–05:59 SGT (was 04:00–07:59)
+### Change 1 — ORB max age cap (bot.py, config_loader.py)
 
-The 06:00–07:59 window is Asian pre-Tokyo overlap, not a dead market. Liquidity is
-present and directional moves happen. The genuine dead period is 04:00–05:59 (thin
-post-US, pre-Asia). From 06:00 onwards the bot now scans and can enter trades.
+Added a signal blocker that prevents entry when the ORB is older than
+`orb_max_age_minutes` (default 120 min). Previously a 4+ hour old ORB would
+still score +0 but not block the trade — price has moved too far from the
+original breakout level for the ORB to be meaningful.
 
-Evidence: May 11 2026 — four 4/6 BUY fresh-cross signals fired at 06:20, 06:23,
-06:41, 06:44 SGT while GBP/USD was trending strongly upward. All were blocked by
-the dead zone. These would almost certainly have been TP hits.
+Setting: `orb_max_age_minutes: 120`
 
-Setting changed: `dead_zone_end_hour: 7 → 5`
+### Change 2 — CPR width filter (bot.py, config_loader.py)
 
-### Change 2 — Tokyo fresh-cross signals allowed at score ≥4 (trend setups still ≥5)
+Added a filter in `_signal_phase` that skips entry when the CPR width exceeds
+`cpr_max_width_pct` (default 0.30%). On high-volatility days with a very wide
+CPR, the pivot levels are too spread to act as reliable support/resistance.
 
-Tokyo threshold ≥5 was filtering out most Tokyo setups. A fresh EMA cross in Tokyo
-(EMA Fresh Cross Up/Down) at 4/6 already has ORB break + CPR alignment baked in —
-it's a high-conviction entry. The ≥5 requirement was leaving 3-point fresh-cross
-signals on the table unnecessarily.
+Setting: `cpr_max_width_pct: 0.30`
 
-Trend-following setups (EMA Trend Up/Down) in Tokyo remain at ≥5. The fresh-cross
-specific override only applies in the Tokyo session.
+### Change 3 — Loss streak cooldown extended to 60 minutes (bot.py)
 
-H1 STRICT mode still applies to all entries — counter-trend setups blocked regardless.
+`loss_streak_cooldown_min` increased from 30 to 60 minutes. After an SL hit
+the bot now waits a full hour before re-entering. Gives the market more time
+to settle and reduces the chance of a second loss in the same momentum move.
 
-New setting: `tokyo_fresh_cross_min_score: 4`
-New logic: in `_signal_phase`, if session=Tokyo and setup contains "Fresh Cross"
-           and session threshold > 4, effective threshold is overridden to 4.
+Setting: `loss_streak_cooldown_min: 60`
 
-### Files changed
-- `bot.py` — threshold override logic in `_signal_phase`
-- `config_loader.py` — `tokyo_fresh_cross_min_score` default added
-- `settings.json` / `settings.json.example` — `dead_zone_end_hour: 5`,
-  `tokyo_fresh_cross_min_score: 4`, `bot_name: Cable AI Scalp v1.4`
-- `version.py` — 1.4.0
+### Unchanged from v1.4
+- Dead zone 04:00–05:59 SGT
+- Tokyo fresh-cross threshold ≥4
+- Position sizes $90/$120
+- AI guard ON
 
 ---
 
-## Cable AI Scalp v1.3 — 2026-05-06 — Remove force-close + backport all v2.15 fixes
+## Cable AI Scalp v1.4 — 2026-05-13 — Narrower dead zone + Tokyo fresh-cross threshold
