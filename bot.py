@@ -1341,6 +1341,19 @@ def _signal_phase(db, run_id, settings, alert, trader, history,
     # calls display the correct session threshold (not the global fallback).
     _thr = int(ctx.get("threshold", settings.get("signal_threshold", 4)))
 
+    # Tokyo fresh-cross override: allow Fresh Cross Up/Down at ≥4 (trend setups still need ≥5)
+    # Rationale: a fresh EMA cross in Tokyo already has ORB + CPR alignment baked in (4/6).
+    # H1 STRICT still protects against counter-trend entries.
+    if (macro == "Tokyo"
+            and "Fresh Cross" in setup
+            and _thr > 4
+            and bool(settings.get("tokyo_fresh_cross_min_score", 4)) >= 0):
+        _fresh_cross_thr = int(settings.get("tokyo_fresh_cross_min_score", 4))
+        if _fresh_cross_thr < _thr:
+            log.debug("[%s] Tokyo fresh-cross threshold override: %d → %d",
+                      instrument, _thr, _fresh_cross_thr)
+            _thr = _fresh_cross_thr
+
     def _send_signal_update(decision, reason, extra_payload=None):
         payload = _signal_payload(score=score, direction=direction,
                                   signal_threshold=_thr,

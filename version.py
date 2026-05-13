@@ -1,2 +1,2 @@
-VERSION     = "1.3.0"
-DESCRIPTION = "Cable AI Scalp v1.3 — remove force-close + backport all v2.15 fixes"
+VERSION     = "1.4.0"
+DESCRIPTION = "Cable AI Scalp v1.4 — narrower dead zone (04:00-05:59) + Tokyo fresh-cross threshold 4"

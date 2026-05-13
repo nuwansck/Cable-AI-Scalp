@@ -1,42 +1,42 @@
 # Changelog
 
-## Cable AI Scalp v1.3 — 2026-05-06 — Remove force-close + backport all v2.15 fixes
+## Cable AI Scalp v1.4 — 2026-05-13 — Narrower dead zone + Tokyo fresh-cross threshold
 
-### Summary
+### Change 1 — Dead zone narrowed to 04:00–05:59 SGT (was 04:00–07:59)
 
-All force-close logic removed. Backported every bug fix from Cable Scalp v2.15.
-AI News Guard and AI Guard Tracker are untouched.
+The 06:00–07:59 window is Asian pre-Tokyo overlap, not a dead market. Liquidity is
+present and directional moves happen. The genuine dead period is 04:00–05:59 (thin
+post-US, pre-Asia). From 06:00 onwards the bot now scans and can enter trades.
 
-### Force-close removed (bot.py, oanda_trader.py, settings)
+Evidence: May 11 2026 — four 4/6 BUY fresh-cross signals fired at 06:20, 06:23,
+06:41, 06:44 SGT while GBP/USD was trending strongly upward. All were blocked by
+the dead zone. These would almost certainly have been TP hits.
 
-Identical to the Cable Scalp v2.15 cleanup. Every trade has a hard SL and TP
-set on OANDA at entry — OANDA closes the trade regardless of bot state.
-The bot-side force-close was the source of the entire v2.5–v2.14 bug chain.
+Setting changed: `dead_zone_end_hour: 7 → 5`
 
-- Removed force_close_stale_trades() function from bot.py
-- Removed the call site and _sess_end_h variable from the main cycle
-- Removed the dead zone management fallthrough (open-trade management no longer
-  needed during 04:00–07:59 SGT — OANDA SL/TP handles it)
-- Dead zone / outside-session handling restored to clean single early-return
-- Removed max_trade_duration_hours and force_close_at_session_end settings defaults
-- Removed max_trade_duration_hours and force_close_at_session_end from settings.json
-- Removed close_trade() and get_today_closed_transactions() from oanda_trader.py
+### Change 2 — Tokyo fresh-cross signals allowed at score ≥4 (trend setups still ≥5)
 
-### Backported fixes from Cable Scalp v2.15
+Tokyo threshold ≥5 was filtering out most Tokyo setups. A fresh EMA cross in Tokyo
+(EMA Fresh Cross Up/Down) at 4/6 already has ORB break + CPR alignment baked in —
+it's a high-conviction entry. The ≥5 requirement was leaving 3-point fresh-cross
+signals on the table unnecessarily.
 
-get_recent_closed_trades() now queries state=ALL and filters state=CLOSED in
-Python, bypassing OANDA index quirks where recently-closed trades are sometimes
-absent from the state=CLOSED result set.
+Trend-following setups (EMA Trend Up/Down) in Tokyo remain at ≥5. The fresh-cross
+specific override only applies in the Tokyo session.
 
-startup_oanda_reconcile() now uses get_recent_closed_trades() (proven endpoint)
-instead of get_today_closed_transactions() (broken — OANDA returns a pagination
-envelope, not transactions, and the function was always silently returning []).
+H1 STRICT mode still applies to all entries — counter-trend setups blocked regardless.
 
-### AI integration unchanged
+New setting: `tokyo_fresh_cross_min_score: 4`
+New logic: in `_signal_phase`, if session=Tokyo and setup contains "Fresh Cross"
+           and session threshold > 4, effective threshold is overridden to 4.
 
-ai_news_guard.py, ai_guard_tracker.py, and all AI-related bot.py code are
-identical to v1.2. Requires OPENAI_API_KEY env var when ai_news_guard_enabled=true.
+### Files changed
+- `bot.py` — threshold override logic in `_signal_phase`
+- `config_loader.py` — `tokyo_fresh_cross_min_score` default added
+- `settings.json` / `settings.json.example` — `dead_zone_end_hour: 5`,
+  `tokyo_fresh_cross_min_score: 4`, `bot_name: Cable AI Scalp v1.4`
+- `version.py` — 1.4.0
 
 ---
 
-## Cable AI Scalp v1.2 — 2026-05-04 — Schedule refinement, weekly CSV export, import fix
+## Cable AI Scalp v1.3 — 2026-05-06 — Remove force-close + backport all v2.15 fixes

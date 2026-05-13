@@ -189,6 +189,8 @@ def load_settings() -> dict:
     st.setdefault('US', 4)
     st.setdefault('US_Cont', 4)
     st.setdefault('Tokyo', 5)
+    # Tokyo fresh-cross override: fresh cross setups use a lower threshold than trend setups
+    settings.setdefault('tokyo_fresh_cross_min_score', 4)
     spl = settings.setdefault('spread_limits', {})
     spl.setdefault('US_Cont', spl.get('US', 5))
 
