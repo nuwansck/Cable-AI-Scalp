@@ -1337,6 +1337,7 @@ def _signal_phase(db, run_id, settings, alert, trader, history,
     )
 
     cpr_w = levels.get("cpr_width_pct", 0)
+    setup = levels.get("setup", "")
 
     # CPR width filter — skip on high-volatility days where CPR is too wide to be useful
     _cpr_max_width = float(settings.get("cpr_max_width_pct", 0.0))
