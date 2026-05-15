@@ -367,10 +367,10 @@ def send_daily_report() -> None:
         # Session breakdown — group by separate macro_session keys.
         # US and US_Cont are intentionally separate for reporting.
         session_order = [
-            ("🗼 Tokyo",   "Tokyo"),
-            ("🇬🇧 London", "London"),
-            ("🗽 US",      "US"),
-            ("🌙 US Cont.", "US_Cont"),
+            ("Tokyo",    "Tokyo"),
+            ("London",   "London"),
+            ("US",       "US"),
+            ("US Cont.", "US_Cont"),
         ]
         session_stats = {}
         for label, macro_key in session_order:

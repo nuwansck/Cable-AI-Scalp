@@ -512,7 +512,6 @@ def msg_daily_report(
     oline = f"Open now: {open_count} position(s)\n" if open_count > 0 else ""
     parts = []
     if blocked_spread:  parts.append(f"{blocked_spread} spread")
-    if blocked_news:    parts.append(f"{blocked_news} news")
     if blocked_signal:  parts.append(f"{blocked_signal} signal")
     bline = f"Blocked:  {', '.join(parts)}\n" if parts else ""
 

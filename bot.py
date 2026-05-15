@@ -1084,11 +1084,24 @@ def _guard_phase(db, run_id, settings, alert, history, now_sgt, today, demo,
                                     before_min=int(settings.get("news_block_before_min", 30)),
                                     after_min =int(settings.get("news_block_after_min",  30)),
                                 ), instrument)
+            db.upsert_state(f"last_news_block_{instrument}", {
+                "blocked": True, "reason": reason,
+                "checked_at_sgt": now_sgt.strftime("%Y-%m-%d %H:%M:%S"),
+                "instrument": instrument,
+            })
             update_runtime_state(last_cycle_finished=now_sgt.strftime("%Y-%m-%d %H:%M:%S"),
                                  status="SKIPPED_NEWS_BLOCK", reason=reason)
             db.finish_cycle(run_id, status="SKIPPED",
-                            summary={"stage": "news_filter", "reason": reason})
+                            summary={"stage": "news_filter", "reason": reason,
+                                     "instrument": instrument})
             return None
+        db.upsert_state(f"last_news_block_{instrument}", {
+            "blocked": False,
+            "reason": reason if news_penalty else None,
+            "penalty": news_penalty,
+            "checked_at_sgt": now_sgt.strftime("%Y-%m-%d %H:%M:%S"),
+            "instrument": instrument,
+        })
 
     # ── Early cap guards (no OANDA call needed) ────────────────────────────
     _dp_pre, _dt_pre, _dl_pre = daily_totals(history, today, instrument=instrument)
