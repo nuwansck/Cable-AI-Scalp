@@ -198,12 +198,26 @@ class OandaTrader:
             if r.status_code == 200:
                 raw = r.json()
                 all_trades = raw.get("trades", [])
+                log.debug(
+                    "get_recent_closed_trades raw: HTTP 200 | instrument=%s | "
+                    "total_returned=%d | lastTransactionID=%s",
+                    instrument, len(all_trades), raw.get("lastTransactionID", "?"),
+                )
+                # Filter: instrument match (accept both GBP_USD and GBP/USD formats)
+                # and state is CLOSED (exclude OPEN and CLOSE_WHEN_TRADEABLE)
                 trades = [
                     t for t in all_trades
                     if (not instrument or t.get("instrument") in (
                             instrument, instrument.replace("_", "/")))
                     and t.get("state") == "CLOSED"
                 ]
+                if all_trades and not trades:
+                    log.debug(
+                        "get_recent_closed_trades: %d total trades returned but 0 matched "
+                        "instrument=%s state=CLOSED; states seen: %s",
+                        len(all_trades), instrument,
+                        list({t.get("state") for t in all_trades}),
+                    )
                 return trades
             log.warning("get_recent_closed_trades failed: %s %s", r.status_code, r.text[:200])
             return []
