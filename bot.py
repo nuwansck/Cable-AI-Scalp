@@ -1462,14 +1462,8 @@ def _signal_phase(db, run_id, settings, alert, trader, history,
 
     signal_blockers = list(levels.get("signal_blockers") or [])
 
-    # ORB max age guard — block entry if ORB is too old to be meaningful
-    _orb_max_age = int(settings.get("orb_max_age_minutes", 120))
-    _orb_age     = int(levels.get("orb_age_min", 0))
-    _orb_formed  = bool(levels.get("orb_formed", False))
-    if _orb_formed and _orb_max_age > 0 and _orb_age > _orb_max_age:
-        signal_blockers.append(
-            f"ORB too old ({_orb_age}min > {_orb_max_age}min cap) — breakout no longer valid"
-        )
+    # ORB age is already penalised in scoring (0-60min=+2, 60-120min=+1, 120min+=+0)
+    # No additional hard block needed — stale ORB already contributes zero points
 
     # H1 strict block — only when h1_filter_mode = "strict"
     _h1_mode    = settings.get("h1_filter_mode", "soft")

@@ -1,2 +1,2 @@
-VERSION     = "1.7.0"
-DESCRIPTION = "Cable AI Scalp v1.7 — add oanda_trader debug logs (sync with Cable Scalp v2.18)"
+VERSION     = "1.8.0"
+DESCRIPTION = "Cable AI Scalp v1.8 — remove ORB max age hard block (scoring already penalises stale ORB)"
