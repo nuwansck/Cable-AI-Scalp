@@ -1,2 +1,2 @@
-VERSION     = "1.2.0"
-DESCRIPTION = "Cable AI Scalp v1.2 — full settings centralization: score_weights and tp_min_pct moved to settings.json, max score derived from weights, single-source defaults (setdefault ladders removed)"
+VERSION     = \"1.3.0\"
+DESCRIPTION = \"Cable AI Scalp v1.3 — settings hygiene: removed dead rr_ratio fallback key, tp_min_pct lowered 0.35->0.15 to match real 25p TP (~0.19%) so the signal checklist stops showing a false fail\"

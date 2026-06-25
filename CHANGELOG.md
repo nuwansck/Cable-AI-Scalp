@@ -1,5 +1,21 @@
 # Changelog
 
+## Cable AI Scalp v1.3 — 2026-06-25
+
+### Settings hygiene (no behavioural change to trade gating)
+- **Removed dead `rr_ratio: 1.67` key.** `derive_rr_ratio()` reads the computed
+  value from `levels` (25/18 = 1.39) first; the settings fallback was only reachable
+  when SL/TP distances are missing, which never happens because `pair_sl_tp` always
+  supplies 18/25. The key was inert and misleadingly implied a 1.67 target.
+- **`tp_min_pct`: 0.35 -> 0.15.** The 25-pip TP is ~0.19% of price at current Cable
+  (~1.32), so the old 0.35% threshold made the "TP >= 0.35%" row in the Telegram signal
+  checklist render as a permanent FAIL on otherwise-valid setups. This row is display-only
+  (`tp_ok` is hardwired True in signals.py and the real RR gate is `min_rr_ratio: 1.3`),
+  so no trade was ever blocked — but the message was misleading. 0.15 reflects reality
+  across the recent price range.
+
+# Changelog
+
 ## Cable AI Scalp v1.2 — 2026-06-25 — Settings centralization
 
 Configuration refactor. No change to live trading behaviour: every effective
