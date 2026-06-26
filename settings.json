@@ -36,6 +36,7 @@
   "max_losing_trades_session": 2,
   "loss_streak_cooldown_min": 60,
   "sl_reentry_gap_min": 10,
+  "entry_reentry_gap_min": 10,
   "max_spread_pips": 5,
   "spread_limits": {
     "London": 4,
@@ -148,7 +149,7 @@
   "tokyo_fresh_cross_min_score": 4,
   "orb_max_age_minutes": 120,
   "cpr_max_width_pct": 0.3,
-  "ema_min_separation_pips": 1.5,
+  "ema_min_separation_pips": 0,
   "h4_adx_filter_enabled": true,
   "h4_adx_period": 14,
   "h4_adx_threshold": 20.0

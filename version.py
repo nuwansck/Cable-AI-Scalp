@@ -1,2 +1,2 @@
-VERSION     = \"1.3.0\"
-DESCRIPTION = \"Cable AI Scalp v1.3 — settings hygiene: removed dead rr_ratio fallback key, tp_min_pct lowered 0.35->0.15 to match real 25p TP (~0.19%) so the signal checklist stops showing a false fail\"
+VERSION     = "1.4.0"
+DESCRIPTION = "Cable AI Scalp v1.4 — disabled the cross-bar EMA separation filter (ema_min_separation_pips 1.5->0): it sampled separation at the cross bar where it is always ~0, so it blocked 100% of fresh crosses, the strategy's core +3 setup. The original strategy now runs as designed. Added entry_reentry_gap_min (10) to close the one duplicate-fire path the SL gap missed: same fresh cross re-firing within its acting candle after a fast TP."

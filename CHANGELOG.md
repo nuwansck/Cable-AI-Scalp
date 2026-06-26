@@ -1,6 +1,38 @@
 # Changelog
 
-## Cable AI Scalp v1.3 — 2026-06-25
+## Cable AI Scalp v1.4 — 2026-06-26
+
+### Fix: the separation filter was blocking the entire strategy
+- **`ema_min_separation_pips`: 1.5 -> 0 (filter disabled).** The Stage-1 EMA
+  separation filter required EMA9/EMA21 to be >= 1.5 pips apart, but it only
+  applied to `"Fresh Cross"` setups and measured separation *at the cross bar* —
+  where, by definition, the two EMAs have just crossed and sit ~0 pips apart. The
+  result: every fresh cross was blocked (log evidence: 8/8 blocks at 0.0–0.6p,
+  including a 6/6 BUY at 0.1p). Because the +3 fresh-cross score is the strategy's
+  primary setup and the only path to 6/6, the strategy's core entry had, in effect,
+  never traded. The only fills that got through were `EMA Trend Up` aligned
+  continuations (+1, no "Fresh Cross" in the setup string, so the filter skipped
+  them). Setting the threshold to 0 disables the gate (`if _ema_sep_min > 0`) and
+  lets the **original strategy run as designed** — fresh cross on the cross bar,
+  gated by score / H1-strict / H4-ADX / ORB / CPR / News Guard, all unchanged.
+  The filter code is left in place (inert at 0) so it can be re-enabled in one
+  line if a *correctly-timed* noise filter is built later from real trade data.
+- No change to entry timing, scoring, or any other gate. Counter-trend fresh
+  crosses remain blocked by H1-strict (correct behaviour, not the bug).
+
+### Fix: closed the one uncovered duplicate-fire path
+- **Added `entry_reentry_gap_min` (default 10).** Existing guards already covered
+  most duplicate risk: `max_concurrent_trades=1` (no second fire while a position
+  is live), `sl_reentry_gap_min=10` (re-entry blocked after an SL), and the 60-min
+  loss-streak cooldown. The gap: `sl_reentry_gap_min` arms only on **SL** closes,
+  so after a fast **TP** within the acting candle the same still-fresh cross could
+  re-fire. The new gap mirrors the SL-gap idiom but arms on **every** fill
+  (`last_entry_at_sgt` recorded at fill time), blocking a second entry within
+  10 min regardless of how the first closed. Set to 0 to disable. This became
+  relevant only because v1.4 unblocks fresh crosses; while the separation filter
+  was on, none of these paths could fire even once.
+
+
 
 ### Settings hygiene (no behavioural change to trade gating)
 - **Removed dead `rr_ratio: 1.67` key.** `derive_rr_ratio()` reads the computed

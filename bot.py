@@ -1167,6 +1167,32 @@ def _guard_phase(db, run_id, settings, alert, history, now_sgt, today, demo,
                                          "instrument": instrument})
                 return None
 
+    # ── Entry re-entry gap ─────────────────────────────────────────────────────
+    # Mirrors the SL gap but arms on EVERY fill (incl. TP closes). Stops the same
+    # fresh cross firing a second entry within its acting candle after a fast TP —
+    # the one duplicate path the SL gap (SL-only) and the open-trade cap (live-only)
+    # don't cover. Set entry_reentry_gap_min: 0 to disable.
+    _entry_gap_min = int(settings.get("entry_reentry_gap_min", 10))
+    if _entry_gap_min > 0:
+        _rt2 = load_json(_pair_runtime_file(instrument), {})
+        _last_entry_at = _rt2.get("last_entry_at_sgt")
+        if _last_entry_at:
+            _last_entry_dt = _parse_sgt_timestamp(_last_entry_at)
+            if _last_entry_dt and (now_sgt - _last_entry_dt).total_seconds() < _entry_gap_min * 60:
+                _rem = max(1, int(
+                    (_entry_gap_min * 60 - (now_sgt - _last_entry_dt).total_seconds()) // 60))
+                send_once_per_state(
+                    alert, ops, "entry_reentry_state", f"entry_gap:{_last_entry_at}",
+                    f"⏳ [{instrument.replace(chr(95),chr(47))}] Re-entry gap — {_rem} more min.",
+                    instrument)
+                update_runtime_state(
+                    last_cycle_finished=now_sgt.strftime("%Y-%m-%d %H:%M:%S"),
+                    status="SKIPPED_ENTRY_REENTRY_GAP")
+                db.finish_cycle(run_id, status="SKIPPED",
+                                summary={"stage": "entry_reentry_gap",
+                                         "instrument": instrument})
+                return None
+
     _, _, daily_losses = daily_totals(history, today, trader=trader,
                                       instrument=instrument)
 
@@ -1852,6 +1878,13 @@ def _execution_phase(db, run_id, settings, alert, trader, history,
     if result.get("success"):
         record["trade_id"] = result.get("trade_id")
         record["status"]   = "FILLED"
+        # Arm the entry re-entry gap (covers TP and SL closes alike).
+        try:
+            _rt_entry = load_json(_pair_runtime_file(instrument), {})
+            _rt_entry["last_entry_at_sgt"] = now_sgt.strftime("%Y-%m-%d %H:%M:%S")
+            save_json(_pair_runtime_file(instrument), _rt_entry)
+        except Exception as _entry_gap_exc:
+            log.warning("Failed to record last_entry_at_sgt: %s", _entry_gap_exc)
         try:
             link_trade(ai_guard_result.get("decision_id"), record.get("trade_id"))
             if ai_guard_result:
