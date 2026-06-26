@@ -20,6 +20,14 @@
 - No change to entry timing, scoring, or any other gate. Counter-trend fresh
   crosses remain blocked by H1-strict (correct behaviour, not the bug).
 
+### Fix: version label
+- **`bot_name`: "Cable AI Scalp v1.3" -> "Cable AI Scalp v1.4".** The Telegram
+  startup banner, scheduler log, and config-sync log all read the displayed version
+  from `settings.json["bot_name"]`, not from `version.py`. The initial v1.4 build
+  bumped `version.py` only, so it would have booted still showing "v1.3". Now the
+  label matches; on next deploy the sync log will read `v1.3 → Cable AI Scalp v1.4`,
+  which is your confirmation the new bundle took.
+
 ### Fix: closed the one uncovered duplicate-fire path
 - **Added `entry_reentry_gap_min` (default 10).** Existing guards already covered
   most duplicate risk: `max_concurrent_trades=1` (no second fire while a position
