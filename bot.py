@@ -1398,6 +1398,45 @@ def _signal_phase(db, run_id, settings, alert, trader, history,
         _, _, ask = trader.get_price(instrument)
         entry = ask or 0
 
+    # ── H1 over-extension band enforcement ───────────────────────────────────
+    # signals.py computes levels["h1_ext_pips"] / ["h1_ext_in_band"] and shadow-
+    # logs every cycle. Enforcement lives here so it survives the news re-
+    # derivation of position_usd above and lands before units are sized.
+    #   "off"    -> nothing (shadow only)
+    #   "soft"   -> haircut position_usd by h1_ext_soft_haircut, trade still fires
+    #   "strict" -> hard block
+    _hx_enabled = bool(settings.get("h1_ext_filter_enabled", True))
+    _hx_mode    = str(settings.get("h1_ext_mode", "off")).lower()
+    _hx_pips    = levels.get("h1_ext_pips")
+    _hx_inband  = levels.get("h1_ext_in_band", True)
+    if _hx_enabled and _hx_pips is not None and not _hx_inband and _hx_mode in ("soft", "strict"):
+        _hx_min = float(settings.get("h1_ext_min_pips", 5.0))
+        _hx_max = float(settings.get("h1_ext_max_pips", 20.0))
+        _hx_why = ("too close (<{:.0f}p, whipsaw)".format(_hx_min)
+                   if _hx_pips < _hx_min else "too far (>{:.0f}p, chase)".format(_hx_max))
+        if _hx_mode == "soft":
+            _hx_hc = min(max(float(settings.get("h1_ext_soft_haircut", 0.5)), 0.0), 1.0)
+            _hx_before   = position_usd
+            position_usd = int(round(position_usd * _hx_hc))
+            log.info("[%s] H1 ext SOFT haircut | %.1fp %s | position $%s -> $%s (x%.2f) score=%s/%s",
+                     instrument, _hx_pips, _hx_why, _hx_before, position_usd,
+                     _hx_hc, score, compute_max_score(settings))
+        else:  # strict
+            _hx_reason = "H1 extension {:.1f}p {} [band {:.0f}-{:.0f}p]".format(
+                _hx_pips, _hx_why, _hx_min, _hx_max)
+            log.info("[%s] BLOCKED h1_ext_strict | %s | score=%s/%s setup=%s",
+                     instrument, _hx_reason, score, compute_max_score(settings), setup)
+            _send_signal_update("BLOCKED", _hx_reason)
+            update_runtime_state(
+                last_cycle_finished=now_sgt.strftime("%Y-%m-%d %H:%M:%S"),
+                status="SKIPPED_H1_EXT_BLOCK", score=score, direction=direction)
+            db.finish_cycle(run_id, status="SKIPPED",
+                            summary={"stage": "h1_ext_filter", "reason": _hx_reason,
+                                     "instrument": instrument})
+            log_signal(score, direction, macro, levels, "BLOCKED_H1_EXT",
+                       block_reason=_hx_reason, settings=settings)
+            return None
+
     sl_price_dist = compute_sl_price_dist(levels, settings)
     tp_price_dist = compute_tp_price_dist(levels, sl_price_dist, settings)
     rr_ratio = derive_rr_ratio(levels, sl_price_dist, tp_price_dist, settings)

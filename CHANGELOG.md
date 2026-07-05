@@ -1,5 +1,44 @@
 # Changelog
 
+## Cable AI Scalp v1.5 — 2026-07-06
+
+### Add: H1 over-extension band filter
+- **New filter measuring how far the entry sits beyond the H1 EMA, in the
+  trade's own direction** (`BUY: (price - h1_ema) / pip`, `SELL: (h1_ema -
+  price) / pip`). Motivation: on the Jun–Jul 2026 GBP/USD demo run the net
+  −$370 was almost entirely concentrated in two entry types the existing
+  binary H1-strict filter is blind to — over-extended chases (>= 20p past the
+  H1 EMA) and just-flipped whipsaws (<= 5p, price sitting on the EMA). Of the
+  10 trades with known H1 state, every entry outside the 5–20p band lost; the
+  band itself held the only net-positive trades.
+- **`signals.py` measures only.** Computes `levels["h1_ext_pips"]` and
+  `levels["h1_ext_in_band"]`, and shadow-logs an `H1 ext | ...` line every
+  cycle (grep `H1 ext`). No trading behaviour lives in signals.py.
+- **`bot.py` enforces**, in the filter stack *after* the news re-derivation of
+  `position_usd` and *before* units are sized (so a soft haircut is not
+  clobbered and lands in the actual order size). Modes:
+  - `off` — shadow only; logs the would-block, changes nothing.
+  - `soft` — trade still fires at `position_usd * h1_ext_soft_haircut`
+    (default 0.5). Reduces the bleed but still participates in out-of-band
+    trades at reduced size.
+  - `strict` — hard block with its own `SKIPPED_H1_EXT_BLOCK` status and a
+    `BLOCKED_H1_EXT` signal-log label.
+- **Ships on `off` deliberately.** The 5/20p edges are fitted on a single
+  month (band contains 6 in-band trades), so the +$98 in-sample strict result
+  is persuasive, not proof. Run in shadow, confirm the band separates winners
+  out-of-sample in the logs, then promote to soft/strict. This changes no
+  trade until the mode is flipped.
+- **New settings keys:** `h1_ext_filter_enabled` (true), `h1_ext_mode`
+  ("off"), `h1_ext_min_pips` (5.0), `h1_ext_max_pips` (20.0),
+  `h1_ext_soft_haircut` (0.5). The pre-existing binary `h1_filter_mode`
+  ("strict") is unchanged and independent of this band.
+
+### Fix: version label
+- **`bot_name`: "Cable AI Scalp v1.4" -> "Cable AI Scalp v1.5".** Keeps the
+  Telegram banner / scheduler / config-sync logs in step with `version.py`
+  (they read the displayed version from `settings.json["bot_name"]`).
+
+
 ## Cable AI Scalp v1.4 — 2026-06-26
 
 ### Fix: the separation filter was blocking the entire strategy

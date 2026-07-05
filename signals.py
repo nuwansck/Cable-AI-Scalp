@@ -422,6 +422,43 @@ class SignalEngine:
             _h1["h1_trend"] in ("UNKNOWN", "DISABLED", "FLAT")
         )
 
+        # -- H1 over-extension band (measure only; enforced in bot.py) --------
+        # Distance of the entry beyond the H1 EMA, measured in the trade's own
+        # direction:
+        #     BUY  ext = (price  - H1_EMA) / pip_size
+        #     SELL ext = (H1_EMA - price)  / pip_size
+        # Backtest (GBP/USD, Jun-Jul 2026, n=10 with known H1): the 5-20p band
+        # held the only net-positive trades; every entry <=5p (just-flipped
+        # whipsaw) or >=20p (extended chase) lost.
+        # This block only computes + stores + shadow-logs. Enforcement (soft
+        # position haircut / strict block) lives in bot.py's filter stack so it
+        # survives the news re-derivation of position_usd and lands before units
+        # are sized.
+        _hx_enabled = bool((settings or {}).get("h1_ext_filter_enabled", True))
+        _hx_mode    = str((settings or {}).get("h1_ext_mode", "off")).lower()
+        _hx_min     = float((settings or {}).get("h1_ext_min_pips", 5.0))
+        _hx_max     = float((settings or {}).get("h1_ext_max_pips", 20.0))
+        _h1_ema_now = _h1.get("h1_ema_now")
+        h1_ext_pips    = None
+        h1_ext_in_band = True
+        if _hx_enabled and _h1_ema_now and _pip_size and direction in ("BUY", "SELL"):
+            if direction == "BUY":
+                h1_ext_pips = round((entry - _h1_ema_now) / _pip_size, 1)
+            else:
+                h1_ext_pips = round((_h1_ema_now - entry) / _pip_size, 1)
+            h1_ext_in_band = (_hx_min <= h1_ext_pips <= _hx_max)
+            if h1_ext_in_band:
+                log.info("H1 ext | %s %s ext=%.1fp in-band [%.0f-%.0fp] mode=%s",
+                         instrument, direction, h1_ext_pips, _hx_min, _hx_max, _hx_mode)
+            else:
+                _hx_why = ("too close (<{:.0f}p, whipsaw)".format(_hx_min)
+                           if h1_ext_pips < _hx_min
+                           else "too far (>{:.0f}p, chase)".format(_hx_max))
+                log.info("H1 ext | %s %s ext=%.1fp OUT-of-band %s [%.0f-%.0fp] mode=%s",
+                         instrument, direction, h1_ext_pips, _hx_why, _hx_min, _hx_max, _hx_mode)
+        levels["h1_ext_pips"]    = h1_ext_pips
+        levels["h1_ext_in_band"] = h1_ext_in_band
+
         levels["score"]        = score
         levels["position_usd"] = position_usd
         levels["entry"]        = round(entry, _dp)
