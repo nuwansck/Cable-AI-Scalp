@@ -1,5 +1,28 @@
 # Changelog
 
+## Cable AI Scalp v1.5.1 — 2026-07-06
+
+### Fix: weekly/monthly report crash (pre-existing, not from v1.5)
+- `reporting._setup_breakdown()` returned dicts with `count`/`win_rate`/
+  `net_pnl` only, but `telegram_templates._sec()` reads `s['wins']` and
+  `s['losses']` -> `KeyError: 'wins'` on the "By Setup" section. Surfaced by
+  the first-Monday monthly report (08:10 SGT); the weekly report hits the same
+  line. Added `wins`/`losses` to the returned dict. Trading was never affected.
+
+### Fix: H1-extension shadow-log labelling
+- Negative extension (price on the wrong side of the H1 EMA) was mislabelled
+  `too close (<5p, whipsaw)`. Now three distinct reasons: `ext<0` -> "wrong
+  side of H1 EMA (counter-trend)", `0<=ext<min` -> "whipsaw (on the line)",
+  `ext>max` -> "chase (extended)". Applied in both signals.py (shadow log) and
+  bot.py (soft/strict enforcement log). Band membership test unchanged;
+  `h1_ext_mode` still ships `off`.
+
+### Chore
+- `version.py` 1.5.0 -> 1.5.1; `bot_name` "Cable AI Scalp v1.5" -> "Cable AI
+  Scalp v1.5.1" so the settings re-sync fires and the boot banner confirms the
+  patch deployed.
+
+
 ## Cable AI Scalp v1.5 — 2026-07-06
 
 ### Add: H1 over-extension band filter

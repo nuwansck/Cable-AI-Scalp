@@ -451,9 +451,12 @@ class SignalEngine:
                 log.info("H1 ext | %s %s ext=%.1fp in-band [%.0f-%.0fp] mode=%s",
                          instrument, direction, h1_ext_pips, _hx_min, _hx_max, _hx_mode)
             else:
-                _hx_why = ("too close (<{:.0f}p, whipsaw)".format(_hx_min)
-                           if h1_ext_pips < _hx_min
-                           else "too far (>{:.0f}p, chase)".format(_hx_max))
+                if h1_ext_pips < 0:
+                    _hx_why = "wrong side of H1 EMA (counter-trend)"
+                elif h1_ext_pips < _hx_min:
+                    _hx_why = "whipsaw (<{:.0f}p, on the line)".format(_hx_min)
+                else:
+                    _hx_why = "chase (>{:.0f}p, extended)".format(_hx_max)
                 log.info("H1 ext | %s %s ext=%.1fp OUT-of-band %s [%.0f-%.0fp] mode=%s",
                          instrument, direction, h1_ext_pips, _hx_why, _hx_min, _hx_max, _hx_mode)
         levels["h1_ext_pips"]    = h1_ext_pips

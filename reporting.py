@@ -197,6 +197,8 @@ def _setup_breakdown(trades: list) -> dict[str, dict]:
         wins = [t for t in ts if t["realized_pnl_usd"] > 0]
         result[setup] = {
             "count":    len(ts),
+            "wins":     len(wins),
+            "losses":   len(ts) - len(wins),
             "win_rate": round(len(wins) / len(ts) * 100, 1),
             "net_pnl":  round(sum(t["realized_pnl_usd"] for t in ts), 2),
         }

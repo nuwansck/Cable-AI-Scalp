@@ -1412,8 +1412,12 @@ def _signal_phase(db, run_id, settings, alert, trader, history,
     if _hx_enabled and _hx_pips is not None and not _hx_inband and _hx_mode in ("soft", "strict"):
         _hx_min = float(settings.get("h1_ext_min_pips", 5.0))
         _hx_max = float(settings.get("h1_ext_max_pips", 20.0))
-        _hx_why = ("too close (<{:.0f}p, whipsaw)".format(_hx_min)
-                   if _hx_pips < _hx_min else "too far (>{:.0f}p, chase)".format(_hx_max))
+        if _hx_pips < 0:
+            _hx_why = "wrong side of H1 EMA (counter-trend)"
+        elif _hx_pips < _hx_min:
+            _hx_why = "whipsaw (<{:.0f}p, on the line)".format(_hx_min)
+        else:
+            _hx_why = "chase (>{:.0f}p, extended)".format(_hx_max)
         if _hx_mode == "soft":
             _hx_hc = min(max(float(settings.get("h1_ext_soft_haircut", 0.5)), 0.0), 1.0)
             _hx_before   = position_usd
